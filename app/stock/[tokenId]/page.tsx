@@ -6,13 +6,15 @@ import { useStockStore } from '../../store/stock';
 import { useAuthStore } from '../../store/auth';
 import { PriceChart } from '../../components/stock/PriceChart';
 import { TradePanel } from '../../components/stock/TradePanel';
-import { AlphaVantageService } from '../../services/AlphaVantageService';
-import { DataTransformService } from '../../services/DataTransformService';
+import { AlphaVantageService } from '../../services/alphaVantage';
+import { DataTransformService } from '../../services/dataTransform';
+import { StockData } from '../../types/stock';
 
 export default function StockDetails() {
-  const { tokenId } = useParams();
+  const params = useParams();
+  const tokenId = params.tokenId as string;
   const { user } = useAuthStore();
-  const { selectedStock, loading, error, fetchStock } = useStockStore();
+  const { selectedStock, error, fetchStock } = useStockStore();
   const [stockData, setStockData] = useState<StockData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -24,11 +26,11 @@ export default function StockDetails() {
       setIsLoading(true);
       setFetchError(null);
 
-      const quoteData = await AlphaVantageService.getInstance().getStockQuote(tokenId as string);
+      const quoteData = await AlphaVantageService.getInstance().getStockQuote(tokenId);
       if (!quoteData) {
         throw new Error('Failed to fetch stock quote');
       }
-      const transformedData = await DataTransformService.getInstance().transformStockQuote(tokenId as string, quoteData);
+      const transformedData = await DataTransformService.getInstance().transformStockQuote(tokenId, quoteData);
       setStockData(transformedData);
       fetchStock(tokenId);
     } catch (e) {
@@ -51,7 +53,7 @@ export default function StockDetails() {
     return () => clearInterval(interval);
   }, [tokenId, fetchStock]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="text-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -84,13 +86,13 @@ export default function StockDetails() {
           <div className="relative w-16 h-16">
             <img
               src={selectedStock.logo}
-              alt={`${selectedStock.name} logo`}
+              alt={`${selectedStock.tokenId} logo`}
               className="rounded-full"
             />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{selectedStock.name}</h1>
-            <p className="text-lg text-gray-600">${selectedStock.symbol}</p>
+            <p className="text-lg text-gray-600">{selectedStock.tokenId}</p>
           </div>
           <div className="ml-auto">
             <div className="text-3xl font-bold text-gray-900">
@@ -106,14 +108,21 @@ export default function StockDetails() {
         {/* Price Chart */}
         <div className="lg:col-span-2 bg-white shadow rounded-lg p-6">
           <h2 className="text-xl font-semibold mb-4">Price History</h2>
-          <PriceChart priceHistory={selectedStock.priceHistory} />
+          <PriceChart tokenId={selectedStock.tokenId} isUSStock={selectedStock.isUSStock} />
         </div>
 
         {/* Trading Panel */}
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-xl font-semibold mb-4">Trade</h2>
           {user ? (
-            <TradePanel stock={selectedStock} />
+            <TradePanel 
+              stock={{
+                tokenId: selectedStock.tokenId,
+                name: selectedStock.name,
+                price: selectedStock.mockPrice,
+                isUSStock: selectedStock.isUSStock
+              }}
+            />
           ) : (
             <p className="text-gray-600">Connect your wallet to start trading</p>
           )}

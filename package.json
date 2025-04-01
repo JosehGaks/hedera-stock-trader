@@ -10,9 +10,11 @@
     "https": "node server.js"
   },
   "dependencies": {
+    "@hashgraph/hashconnect": "^1.24.0",
     "@hashgraph/sdk": "^2.61.0",
     "axios": "^1.6.7",
     "chart.js": "^4.4.8",
+    "chartjs-adapter-date-fns": "^3.0.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "firebase": "^10.8.0",

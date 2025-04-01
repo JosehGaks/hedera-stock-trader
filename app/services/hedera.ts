@@ -1,4 +1,4 @@
-import { HashConnect, HashConnectConnectionState, SessionData } from 'hashconnect';
+import { HashConnectService } from './hashconnect';
 import { LedgerId, AccountId, TokenId, TransferTransaction, TransactionReceipt } from '@hashgraph/sdk';
 
 interface TokenTransferParams {
@@ -15,12 +15,11 @@ declare global {
 
 export class HederaService {
   private static instance: HederaService;
-  private hashConnect: HashConnect | null = null;
-  private isInitialized = false;
-  private state: HashConnectConnectionState = HashConnectConnectionState.Disconnected;
-  private pairingData: SessionData | null = null;
+  private hashConnectService: HashConnectService;
 
-  private constructor() {}
+  private constructor() {
+    this.hashConnectService = HashConnectService.getInstance();
+  }
 
   static getInstance(): HederaService {
     if (!HederaService.instance) {
@@ -29,91 +28,44 @@ export class HederaService {
     return HederaService.instance;
   }
 
-  async initialize() {
-    if (this.isInitialized) return;
-
+  async init(): Promise<boolean> {
     try {
-      const appMetadata = {
-        name: "AfriStocks",
-        description: "Trade tokenized African stocks on the Hedera blockchain",
-        icons: ["https://afristocks.com/logo.png"],
-        url: "https://afristocks.com"
-      };
-
-      // Create HashConnect instance
-      this.hashConnect = new HashConnect(
-        LedgerId.MAINNET,
-        process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '',
-        appMetadata,
-        true
-      );
-
-      // Set up event listeners
-      this.setUpHashConnectEvents();
-
-      // Initialize HashConnect
-      await this.hashConnect.init();
-
-      this.isInitialized = true;
+      return await this.hashConnectService.init();
     } catch (error) {
-      console.error('Failed to initialize HashConnect:', error);
-      throw error;
+      console.error('Failed to initialize Hedera service:', error);
+      return false;
     }
   }
 
-  private setUpHashConnectEvents() {
-    if (!this.hashConnect) return;
-
-    this.hashConnect.pairingEvent.on((newPairing) => {
-      this.pairingData = newPairing;
-    });
-
-    this.hashConnect.disconnectionEvent.on(() => {
-      this.pairingData = null;
-    });
-
-    this.hashConnect.connectionStatusChangeEvent.on((connectionStatus) => {
-      this.state = connectionStatus;
-    });
+  async connect(): Promise<boolean> {
+    try {
+      return await this.hashConnectService.connect();
+    } catch (error) {
+      console.error('Failed to connect to Hedera:', error);
+      return false;
+    }
   }
 
-  async connectWallet() {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
-    if (!this.hashConnect) {
-      throw new Error('HashConnect not initialized');
-    }
-
+  async disconnect(): Promise<boolean> {
     try {
-      // Open the pairing modal
-      this.hashConnect.openPairingModal();
-      
-      // Wait for pairing to complete
-      return new Promise<SessionData>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Pairing timeout'));
-        }, 30000); // 30 second timeout
-
-        this.hashConnect!.pairingEvent.once((pairingData) => {
-          clearTimeout(timeout);
-          resolve(pairingData);
-        });
-      });
+      return await this.hashConnectService.disconnect();
     } catch (error) {
-      console.error('Failed to connect wallet:', error);
-      throw error;
+      console.error('Failed to disconnect from Hedera:', error);
+      return false;
     }
+  }
+
+  isConnected(): boolean {
+    return this.hashConnectService.isConnected();
   }
 
   async transferToken({ tokenId, amount, isBuying }: TokenTransferParams) {
-    if (!this.isInitialized || !this.hashConnect || !this.pairingData) {
-      throw new Error('HashConnect not initialized or not connected');
+    if (!this.hashConnectService.isConnected()) {
+      throw new Error('HashConnect not connected');
     }
 
     try {
-      const accountId = this.pairingData.accountIds[0];
+      const accountId = this.hashConnectService.getAccountId();
       const tokenIdObj = TokenId.fromString(tokenId);
       const treasuryAccountId = AccountId.fromString(process.env.NEXT_PUBLIC_HEDERA_ACCOUNT_ID || '');
 
@@ -132,7 +84,7 @@ export class HederaService {
         .freeze();
 
       // Send the transaction for signing
-      const response = await this.hashConnect.sendTransaction(
+      const response = await this.hashConnectService.sendTransaction(
         accountId,
         transaction
       );
@@ -149,12 +101,12 @@ export class HederaService {
   }
 
   async getTokenBalance(tokenId: string) {
-    if (!this.isInitialized || !this.hashConnect || !this.pairingData) {
-      throw new Error('HashConnect not initialized or not connected');
+    if (!this.hashConnectService.isConnected()) {
+      throw new Error('HashConnect not connected');
     }
 
     try {
-      const accountId = this.pairingData.accountIds[0];
+      const accountId = this.hashConnectService.getAccountId();
       const mirrorNodeUrl = process.env.NEXT_PUBLIC_HEDERA_MIRRON_NODE_URL || 'https://mainnet-public.mirrornode.hedera.com';
 
       const response = await fetch(
@@ -175,14 +127,6 @@ export class HederaService {
     } catch (error) {
       console.error('Failed to get token balance:', error);
       throw error;
-    }
-  }
-
-  async disconnect() {
-    if (this.hashConnect) {
-      await this.hashConnect.disconnect();
-      this.pairingData = null;
-      this.state = HashConnectConnectionState.Disconnected;
     }
   }
 } 

@@ -10,12 +10,9 @@ import {
   Title,
   Tooltip,
   Legend,
-  TimeScale,
-  ChartOptions,
-  ChartData as ChartJSData,
+  TimeScale
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import 'chartjs-adapter-date-fns';
 import { AlphaVantageService } from '../../services/alphaVantage';
 
 ChartJS.register(
@@ -34,26 +31,9 @@ interface PriceChartProps {
   isUSStock: boolean;
 }
 
-interface IntradayData {
-  'Time Series (5min)': {
-    [key: string]: {
-      '1. open': string;
-      '2. high': string;
-      '3. low': string;
-      '4. close': string;
-      '5. volume': string;
-    };
-  };
-}
-
 interface ChartData {
-  timestamp: Date;
+  timestamp: string;
   price: number;
-}
-
-interface ChartPoint {
-  x: Date;
-  y: number;
 }
 
 export function PriceChart({ tokenId, isUSStock }: PriceChartProps) {
@@ -73,14 +53,17 @@ export function PriceChart({ tokenId, isUSStock }: PriceChartProps) {
         setIsLoading(true);
         setError(null);
 
-        const history = await AlphaVantageService.getInstance().getPriceHistory(tokenId);
-        const timeSeriesData = (history as IntradayData)['Time Series (5min)'];
+        const history = await AlphaVantageService.getInstance().getIntradayData(tokenId);
+        if (!history || !history['Time Series (5min)']) {
+          throw new Error('Failed to fetch price history');
+        }
+        const timeSeriesData = history['Time Series (5min)'];
         const chartData: ChartData[] = Object.entries(timeSeriesData)
-          .map(([timestamp, values]) => ({
-            timestamp: new Date(timestamp),
-            price: parseFloat(values['4. close']),
+          .map(([timestamp, values]: [string, any]) => ({
+            timestamp,
+            price: parseFloat(values['4. close'])
           }))
-          .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
         setChartData(chartData);
       } catch (error) {
@@ -98,7 +81,7 @@ export function PriceChart({ tokenId, isUSStock }: PriceChartProps) {
 
   if (isLoading) {
     return (
-      <div className="h-64 flex items-center justify-center">
+      <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -106,90 +89,49 @@ export function PriceChart({ tokenId, isUSStock }: PriceChartProps) {
 
   if (error) {
     return (
-      <div className="h-64 flex items-center justify-center">
+      <div className="flex items-center justify-center h-64">
         <p className="text-red-600">{error}</p>
       </div>
     );
   }
 
-  if (chartData.length === 0) {
-    return (
-      <div className="h-64 flex items-center justify-center">
-        <p className="text-gray-500">No price data available</p>
-      </div>
-    );
-  }
-
-  const chartJSData: ChartJSData<'line', ChartPoint[]> = {
+  const data = {
+    labels: chartData.map(point => new Date(point.timestamp)),
     datasets: [
       {
         label: 'Price',
-        data: chartData.map((point) => ({
-          x: point.timestamp,
-          y: point.price,
-        })),
+        data: chartData.map(point => point.price),
         borderColor: 'rgb(59, 130, 246)',
         backgroundColor: 'rgba(59, 130, 246, 0.5)',
-        tension: 0.1,
-      },
-    ],
+        tension: 0.1
+      }
+    ]
   };
 
-  const options: ChartOptions<'line'> = {
+  const options = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
-      },
-      tooltip: {
-        mode: 'index',
-        intersect: false,
-        callbacks: {
-          label: (context) => `$${context.parsed.y.toFixed(2)}`,
-        },
-      },
-    },
     scales: {
       x: {
-        type: 'time',
+        type: 'time' as const,
         time: {
-          unit: 'hour',
-          displayFormats: {
-            hour: 'HH:mm',
-          },
-        },
-        title: {
-          display: true,
-          text: 'Time',
-        },
+          unit: 'minute' as const
+        }
       },
       y: {
-        beginAtZero: false,
-        title: {
-          display: true,
-          text: 'Price ($)',
-        },
-        ticks: {
-          callback: (value: number | string) => {
-            if (typeof value === 'number') {
-              return `$${value.toFixed(2)}`;
-            }
-            return value;
-          },
-        },
-      },
+        beginAtZero: false
+      }
     },
-    interaction: {
-      mode: 'nearest',
-      axis: 'x',
-      intersect: false,
-    },
+    plugins: {
+      legend: {
+        display: false
+      }
+    }
   };
 
   return (
     <div className="h-64">
-      <Line data={chartJSData} options={options} />
+      <Line data={data} options={options} />
     </div>
   );
 } 
