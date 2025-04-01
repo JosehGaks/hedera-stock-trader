@@ -10,7 +10,7 @@ export const mockStocks: Stock[] = [
     sector: 'Technology',
     country: 'US',
     market: 'NASDAQ',
-    mockPrice: 175.50,
+    mockPrice: 175.23,
     priceHistory: [],
     marketCap: 2800000000000,
     volume24h: 75000000,
@@ -25,7 +25,7 @@ export const mockStocks: Stock[] = [
     sector: 'Technology',
     country: 'US',
     market: 'NASDAQ',
-    mockPrice: 338.25,
+    mockPrice: 383.28,
     priceHistory: [],
     marketCap: 2500000000000,
     volume24h: 25000000,
@@ -45,5 +45,35 @@ export const mockStocks: Stock[] = [
     marketCap: 1500000000000,
     volume24h: 45000000,
     isUSStock: true
+  },
+  {
+    tokenId: '0.0.123459',
+    name: 'Tesla, Inc.',
+    symbol: 'TSLA',
+    description: 'Tesla, Inc. designs, develops, manufactures, leases, and sells electric vehicles, and energy generation and storage systems.',
+    sector: 'Automotive',
+    country: 'US',
+    market: 'NASDAQ',
+    logo: 'https://logo.clearbit.com/tesla.com',
+    mockPrice: 216.42,
+    priceHistory: [],
+    marketCap: 687000000000,
+    volume24h: 94000000,
+    isUSStock: true
+  },
+  {
+    tokenId: '0.0.123460',
+    name: 'Safaricom Plc',
+    symbol: 'SAFCOM',
+    description: 'Safaricom PLC is a mobile network operator headquartered in Kenya. It is the largest telecommunications provider in Kenya.',
+    sector: 'Telecommunications',
+    country: 'KE',
+    market: 'NSE',
+    logo: 'https://logo.clearbit.com/safaricom.co.ke',
+    mockPrice: 25.75,
+    priceHistory: [],
+    marketCap: 1032000000,
+    volume24h: 1500000,
+    isUSStock: false
   }
 ]; 

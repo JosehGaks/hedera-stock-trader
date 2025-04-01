@@ -1,23 +1,16 @@
 'use client';
 
-import { HashConnectTypes } from '@hashgraph/hashconnect';
-
-declare global {
-  interface Window {
-    HashConnect: any;
-  }
-}
-
 export class HashConnectService {
   private static instance: HashConnectService;
   private hashConnect: any;
   private state: any;
   private pairingData: any;
+  private initPromise: Promise<boolean> | null = null;
 
   private constructor() {
-    if (typeof window !== 'undefined') {
-      this.hashConnect = window.HashConnect;
-    }
+    this.hashConnect = null;
+    this.state = null;
+    this.pairingData = null;
   }
 
   static getInstance(): HashConnectService {
@@ -27,37 +20,110 @@ export class HashConnectService {
     return HashConnectService.instance;
   }
 
-  async init() {
-    if (!this.hashConnect) {
-      throw new Error('HashConnect not available');
+  async waitForHashConnect(timeoutMs = 5000): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Check if HashConnect is already available
+      if (typeof window !== 'undefined' && window.HashConnect) {
+        console.log('HashConnect already available on window');
+        this.hashConnect = new window.HashConnect();
+        resolve();
+        return;
+      }
+
+      console.log('Waiting for HashConnect to be available...');
+
+      // Function to check for HashConnect
+      const checkHashConnect = () => {
+        if (typeof window !== 'undefined' && window.HashConnect) {
+          console.log('HashConnect found after waiting');
+          clearInterval(checkInterval);
+          clearTimeout(timeout);
+          this.hashConnect = new window.HashConnect();
+          resolve();
+        }
+      };
+
+      // Set up interval to check for HashConnect
+      const checkInterval = setInterval(checkHashConnect, 100);
+
+      // Set up timeout
+      const timeout = setTimeout(() => {
+        clearInterval(checkInterval);
+        console.error('Timed out waiting for HashConnect');
+        reject(new Error("HashConnect not loaded within timeout period"));
+      }, timeoutMs);
+
+      // Listen for the custom event
+      if (typeof window !== 'undefined') {
+        window.addEventListener('hashconnect-loaded', () => {
+          console.log('Received hashconnect-loaded event');
+          if (window.HashConnect) {
+            clearInterval(checkInterval);
+            clearTimeout(timeout);
+            this.hashConnect = new window.HashConnect();
+            resolve();
+          }
+        }, { once: true });
+      }
+    });
+  }
+
+  async init(): Promise<boolean> {
+    // Use cached promise if already initializing
+    if (this.initPromise) {
+      return this.initPromise;
     }
 
-    try {
-      this.state = await this.hashConnect.init({
-        appMetadata: {
-          name: 'Hedera Stock Trader',
-          description: 'A decentralized stock trading platform on Hedera',
-          icon: 'https://www.hedera.com/logo-capital-hbar-wordmark.png'
+    // Create new init promise
+    this.initPromise = (async () => {
+      try {
+        // Wait for HashConnect to be available
+        await this.waitForHashConnect();
+
+        if (!this.hashConnect) {
+          console.error('HashConnect still not available after waiting');
+          throw new Error('HashConnect not available');
         }
-      });
-      return true;
-    } catch (error) {
-      console.error('Failed to initialize HashConnect:', error);
-      return false;
-    }
+
+        console.log('Initializing HashConnect...');
+        this.state = await this.hashConnect.init({
+          appMetadata: {
+            name: 'Hedera Stock Trader',
+            description: 'A decentralized stock trading platform on Hedera',
+            icon: 'https://www.hedera.com/logo-capital-hbar-wordmark.png'
+          }
+        });
+        console.log('HashConnect initialized successfully', this.state);
+        return true;
+      } catch (error) {
+        console.error('Failed to initialize HashConnect:', error);
+        this.initPromise = null; // Allow retrying
+        throw error;
+      }
+    })();
+
+    return this.initPromise;
   }
 
   async connect() {
-    if (!this.hashConnect) {
-      throw new Error('HashConnect not available');
-    }
-
     try {
-      this.pairingData = await this.hashConnect.connect();
-      return true;
+      // Ensure HashConnect is initialized
+      if (!this.state) {
+        await this.init();
+      }
+
+      if (!this.hashConnect) {
+        throw new Error('HashConnect not available');
+      }
+
+      console.log('Connecting to HashConnect...');
+      const pairingData = await this.hashConnect.connect();
+      this.pairingData = pairingData;
+      console.log('Connected to HashConnect', pairingData);
+      return pairingData;
     } catch (error) {
       console.error('Failed to connect with HashConnect:', error);
-      return false;
+      throw error;
     }
   }
 

@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuthStore } from '../store/auth';
+import { useAuthStore } from '../../store/auth';
 import { usePathname } from 'next/navigation';
 
-export default function Navbar() {
+export function Navbar() {
   const { user } = useAuthStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);

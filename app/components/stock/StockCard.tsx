@@ -54,16 +54,29 @@ export function StockCard({ stock }: StockCardProps) {
       onClick={handleClick}
       className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-md transition-shadow"
     >
-      <div className="flex items-center space-x-4 mb-4">
-        <div className="relative w-12 h-12">
-          <img
-            src={stock.logo}
-            alt={`${stock.tokenId} logo`}
-            className="rounded-full"
-          />
+      <div className="flex items-center mb-4">
+        <div className="w-10 h-10 rounded-full overflow-hidden mr-3 bg-gray-100 flex items-center justify-center">
+          {stock.logo ? (
+            <img 
+              src={stock.logo} 
+              alt={stock.name} 
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                // On error, replace with an icon
+                e.currentTarget.src = "/images/stocks/default.png";
+                e.currentTarget.onerror = null; // Prevent infinite loop
+              }}
+            />
+          ) : (
+            <img 
+              src="/images/stocks/default.png" 
+              alt={stock.name} 
+              className="h-6 w-6 opacity-70" 
+            />
+          )}
         </div>
         <div>
-          <h3 className="font-semibold text-gray-900">{stock.name}</h3>
+          <h3 className="text-lg font-semibold">{stock.name}</h3>
           <span className="text-gray-600">{stock.tokenId}</span>
         </div>
       </div>

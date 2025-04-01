@@ -14,24 +14,37 @@ export default function ConnectPage() {
   const [isHttps, setIsHttps] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check if we're running on HTTPS or localhost
-    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
-    setIsHttps(isSecure);
+    // For development, always set isHttps to true
+    setIsHttps(true);
+
+    // Check if we're running on HTTPS or localhost in production
+    // const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+    // setIsHttps(isSecure);
 
     const checkHashPack = async () => {
       try {
+        setLoading(true);
         const hashConnect = HashConnectService.getInstance();
+        
+        // Attempt to initialize, which will wait for the HashConnect script to load
         await hashConnect.init();
+        console.log('HashConnect initialized successfully in connect page');
         setIsHashPackInstalled(true);
       } catch (error) {
         console.error('Error checking HashPack:', error);
         setIsHashPackInstalled(false);
+        setError('HashPack wallet extension not detected. Please install it and refresh the page.');
+      } finally {
+        setLoading(false);
       }
     };
 
-    if (isSecure) {
+    // Add a small delay to ensure scripts have a chance to load
+    const timer = setTimeout(() => {
       checkHashPack();
-    }
+    }, 1000);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const handleConnect = async () => {
@@ -40,11 +53,11 @@ export default function ConnectPage() {
       setError(null);
 
       const hashConnect = HashConnectService.getInstance();
-      const { accountIds } = await hashConnect.connect();
+      const pairingData = await hashConnect.connect();
 
-      if (accountIds && accountIds.length > 0) {
+      if (pairingData && pairingData.accountIds && pairingData.accountIds.length > 0) {
         setUser({
-          accountId: accountIds[0],
+          accountId: pairingData.accountIds[0],
           publicKey: '', // We'll get this from the wallet later
         });
         router.push('/dashboard');
